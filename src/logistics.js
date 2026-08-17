@@ -1,5 +1,10 @@
+import{nextId}from'./state.js';import{adjacentFlag}from'./world.js';
 export function segmentKey(a,b){return a.id<b.id?`${a.id}-${b.id}`:`${b.id}-${a.id}`}
 export function goodsAtFlag(state,flagId){return state.goods.filter(g=>g.currentFlag===flagId&&!g.carrierId)}
 export function cargoSummary(state,flagId){const counts={};for(const good of goodsAtFlag(state,flagId))counts[good.kind]=(counts[good.kind]||0)+1;return counts}
 export function connectedSegments(state,flagId){return state.segments.filter(s=>s.a===flagId||s.b===flagId)}
 export function enqueueGood(state,good){state.goods.push(good);return good}
+function flagGraph(state,start,goal){const q=[start.id],prev=new Map(),seen=new Set(q);for(let h=0;h<q.length;h++){const id=q[h];if(id===goal.id){const out=[];let n=id;while(n!=null){out.push(n);n=prev.get(n)}return out.reverse()}for(const s of connectedSegments(state,id)){const n=s.a===id?s.b:s.a;if(!seen.has(n)){seen.add(n);prev.set(n,id);q.push(n)}}}return[]}
+export function destinationFor(state,kind,source){const wanted=kind==='logs'?['mill','store']:['store'];let best=null;for(const b of state.buildings.filter(v=>wanted.includes(v.type))){const f=adjacentFlag(state,b);if(!f)continue;const route=flagGraph(state,source,f);if(route.length&&(!best||route.length<best.route.length))best={building:b,flag:f,route}}return best}
+export function spawnCargo(state,kind,producer){const source=adjacentFlag(state,producer);if(!source)return null;const dest=destinationFor(state,kind,source);if(!dest)return null;const good={id:nextId(state,'good'),kind,producerId:producer.id,destinationId:dest.building.id,currentFlag:source.id,route:dest.route,routeIndex:0,carrierId:null,rest:0};state.goods.push(good);return good}
+export function receiveCargo(state,good){const b=state.buildings.find(v=>v.id===good.destinationId);if(!b)return;if(b.type==='mill'&&good.kind==='logs')b.input.logs=(b.input.logs||0)+1;else state.inventory[good.kind]=(state.inventory[good.kind]||0)+1;state.stats.delivered++;state.goods=state.goods.filter(v=>v.id!==good.id)}
