@@ -1,0 +1,3 @@
+GitHub Pages refresh trigger for Settlers Browser v21.
+No gameplay or application code changed.
+Triggered 2026-08-17.
