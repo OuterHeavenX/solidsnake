@@ -1,0 +1,67 @@
+import { adjacentFlag } from './world.js';
+import { BUILDINGS } from './config.js';
+
+const JOBS = ['wood', 'mill', 'quarry', 'farm'];
+const TOOL = { wood: 'axe', mill: 'saw', quarry: 'pick', farm: 'scythe' };
+const ICON = { axe: '🪓', saw: '🪚', pick: '⛏️', scythe: '🌾' };
+
+function inv(b) {
+  const output = Object.entries(b.output || {}).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(' ') || 'empty';
+  return `OUT [${output}]`;
+}
+
+function reqLine(site) {
+  return Object.entries(site.required).map(([k, v]) => `${k}: <b>${site.delivered[k] || 0}/${v}</b>`).join(' · ');
+}
+
+export function createUI(state) {
+  const res = document.querySelector('#res');
+  const status = document.querySelector('#status');
+
+  function population() {
+    const houses = state.buildings.filter(b => b.type === 'house').length;
+    return { cap: 4 + houses * 2, used: state.workers.length + (state.joblessProfessionals?.length || 0) };
+  }
+
+  function render() {
+    const pop = population();
+    if (res) {
+      res.innerHTML = `🪵 ${state.inventory.wood || 0}　🌲 ${state.inventory.logs || 0}　🟫 ${state.inventory.planks || 0}　🪨 ${state.inventory.stone || 0}　🌾 ${state.inventory.food || 0}　👥 ${pop.used}/${pop.cap}`;
+    }
+
+    const store = state.buildings.find(b => b.type === 'store');
+    const sites = state.constructionSites;
+    let siteHtml = '';
+
+    if (sites.length) {
+      siteHtml = `<div style="margin-top:9px"><b>🏗️ Construction queue: ${sites.length}</b></div>` + sites.slice(0, 3).map((site, i) => {
+        const cargo = state.goods.filter(g => g.construction && g.destinationId === site.id).length;
+        const name = BUILDINGS[site.type]?.name || site.type;
+        return `<div style="margin-top:7px;padding-top:6px;border-top:1px solid #ffffff22"><b>#${i + 1} ${name}</b><br>${reqLine(site)}<br>Cargo: <b>${cargo}</b> · <b>${site.status}</b> · ${Math.round(site.progress * 100)}%</div>`;
+      }).join('');
+    } else {
+      siteHtml = '<div style="margin-top:8px"><b>✅ No active construction</b></div>';
+    }
+
+    const tools = Object.entries(state.tools || {}).map(([k, v]) => `${ICON[k] || k} ${k}: <b>${v}</b>`).join(' · ');
+    const waiting = (state.joblessProfessionals || []).reduce((a, p) => (a[p.job] = (a[p.job] || 0) + 1, a), {});
+
+    let jobs = `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #ffffff55"><b>🗺️ Territory</b><br>Claimed tiles: <b>${state.ownedTiles?.size || 0}</b> · Pioneers: <b>${state.pioneers?.length || 0}</b><br><small>Buildings and roads may only be placed on claimed land.</small></div>`;
+    jobs += `<div style="margin-top:8px"><b>🧰 Profession tools</b><br>${tools}</div>`;
+    jobs += `<div style="margin-top:8px"><b>👥 Workforce ${pop.used}/${pop.cap}</b>${Object.keys(waiting).length ? `<br><small>Jobless specialists: ${Object.entries(waiting).map(([k, v]) => `${BUILDINGS[k]?.name || k} ×${v}`).join(' · ')}</small>` : ''}</div>`;
+    jobs += state.buildings.filter(b => JOBS.includes(b.type)).map(b => {
+      const worker = state.workers.find(w => w.ownerId === b.id);
+      const tool = TOOL[b.type];
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px"><span>${BUILDINGS[b.type]?.name || b.type} ${worker ? '🟢 working' : '⚪ requests ' + (ICON[tool] || '') + ' ' + tool}</span><button data-staff="${b.id}" style="padding:5px 9px">${worker ? 'Release' : 'Request worker'}</button></div>`;
+    }).join('');
+
+    if (status) {
+      status.innerHTML = `Road segments: <b>${state.segments.length}</b> · Carriers: <b>${state.carriers.length}</b><br>Physical cargo: <b>${state.goods.length}</b> · Completed: <b>${state.stats.delivered}</b><br>Builders: <b>${state.builders.length}</b><hr>${store ? `<b>Storage ${adjacentFlag(state, store) ? '🟢' : '🔴'}</b><br>${inv(store)}` : ''}${siteHtml}${jobs}`;
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+  return { render, population };
+}
