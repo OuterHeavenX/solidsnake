@@ -1,0 +1,143 @@
+import { WORLD, BUILDINGS } from './config.js';
+
+export function createRenderer(canvas, state, view) {
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = innerWidth * devicePixelRatio;
+    canvas.height = innerHeight * devicePixelRatio;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+
+  resize();
+  addEventListener('resize', resize);
+
+  const iso = (x, y) => ({
+    x: view.x + (x - y) * 32 * view.zoom,
+    y: view.y + (x + y) * 16 * view.zoom
+  });
+
+  function diamond(x, y, fill, stroke = '#416c3b') {
+    const p = iso(x, y);
+    const w = 32 * view.zoom;
+    const h = 16 * view.zoom;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - h);
+    ctx.lineTo(p.x + w, p.y);
+    ctx.lineTo(p.x, p.y + h);
+    ctx.lineTo(p.x - w, p.y);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+  }
+
+  function building(b) {
+    const p = iso(b.x, b.y);
+    const z = view.zoom;
+    if (b.type === 'road') {
+      diamond(b.x, b.y, '#a28659', '#806b49');
+      return;
+    }
+    if (b.type === 'flag') {
+      diamond(b.x, b.y, '#a28659', '#806b49');
+      ctx.strokeStyle = '#5d3825';
+      ctx.lineWidth = 2 * z;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y + 8 * z);
+      ctx.lineTo(p.x, p.y - 20 * z);
+      ctx.stroke();
+      ctx.fillStyle = '#e33838';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 20 * z);
+      ctx.lineTo(p.x + 13 * z, p.y - 15 * z);
+      ctx.lineTo(p.x, p.y - 10 * z);
+      ctx.fill();
+      return;
+    }
+
+    ctx.fillStyle = b.type === 'farm' ? '#c9a24e' : '#c9aa72';
+    ctx.fillRect(p.x - 15 * z, p.y - 21 * z, 30 * z, 27 * z);
+    if (b.type !== 'farm') {
+      ctx.fillStyle = '#513626';
+      ctx.beginPath();
+      ctx.moveTo(p.x - 20 * z, p.y - 21 * z);
+      ctx.lineTo(p.x, p.y - 39 * z);
+      ctx.lineTo(p.x + 20 * z, p.y - 21 * z);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#182018';
+    ctx.font = `${9 * z}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(BUILDINGS[b.type]?.name || b.type, p.x, p.y + 18 * z);
+  }
+
+  function person(e, color, label) {
+    const p = iso(e.x, e.y);
+    const z = view.zoom;
+    ctx.fillStyle = '#efd0a0';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - 3 * z, 3 * z, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillRect(p.x - 3 * z, p.y, 6 * z, 9 * z);
+    if (label && z > 0.7) {
+      ctx.fillStyle = '#fff';
+      ctx.font = `${6 * z}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText(label, p.x, p.y - 10 * z);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ctx.fillStyle = '#6fa357';
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+
+    for (let y = 0; y < WORLD.height; y++) {
+      for (let x = 0; x < WORLD.width; x++) {
+        const owned = state.ownedTiles?.has(`${x},${y}`);
+        const base = (x + y) % 5 === 0 ? '#76aa5d' : '#70a557';
+        diamond(x, y, owned ? '#82b968' : base, owned ? '#d8c770' : '#416c3b');
+      }
+    }
+
+    for (const b of state.buildings) building(b);
+
+    for (const s of state.constructionSites) {
+      diamond(s.x, s.y, '#9a8764');
+      const p = iso(s.x, s.y);
+      const z = view.zoom;
+      ctx.strokeStyle = '#e0bd74';
+      ctx.strokeRect(p.x - 17 * z, p.y - 27 * z, 34 * z, 29 * z);
+      ctx.fillStyle = '#1b2119';
+      ctx.fillRect(p.x - 18 * z, p.y + 8 * z, 36 * z, 4 * z);
+      ctx.fillStyle = '#e0bd55';
+      ctx.fillRect(p.x - 18 * z, p.y + 8 * z, 36 * z * s.progress, 4 * z);
+    }
+
+    for (const w of state.workers) person(w, '#4c79a8', w.carry ? '📦' : '');
+    for (const c of state.carriers) person(c, '#9b503b', c.goodId ? '📦' : '');
+    for (const b of state.builders) person(b, '#c58a35', '👷');
+    for (const p of state.pioneers || []) person(p, '#d6c644', '🚩');
+
+    if (state.pioneerTarget) {
+      const p = iso(state.pioneerTarget.x, state.pioneerTarget.y);
+      const z = view.zoom;
+      ctx.strokeStyle = '#ffe780';
+      ctx.lineWidth = 3 * z;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 13 * z, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+  return { iso, resize };
+}
