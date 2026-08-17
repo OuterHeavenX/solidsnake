@@ -1,0 +1,3 @@
+export const WORLD={width:32,height:32,tileWidth:64,tileHeight:32};
+export const BUILDINGS={road:{name:'Road',icon:'🛤️',cost:{stone:1}},flag:{name:'Flag',icon:'🚩',cost:{wood:1}},wood:{name:'Woodcutter',icon:'🪓',cost:{wood:6,stone:2}},mill:{name:'Sawmill',icon:'🪚',cost:{wood:8,stone:3}},quarry:{name:'Quarry',icon:'⛏️',cost:{wood:5}},farm:{name:'Farm',icon:'🌾',cost:{wood:7,stone:2}},house:{name:'House',icon:'🏠',cost:{wood:10,planks:5,stone:4}},store:{name:'Storage',icon:'📦',cost:{wood:10,planks:6,stone:6}},tower:{name:'Tower',icon:'🏰',cost:{planks:8,stone:14}}};
+export const JOBS={wood:'Woodcutter',quarry:'Stonecutter',farm:'Farmer',mill:'Sawyer'};
